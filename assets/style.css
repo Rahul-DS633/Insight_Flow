@@ -120,15 +120,32 @@ h1 {
 }
 
 /* ── Ensure all text is visible ─────────────────────────────────────── */
-p, div, label, li, td, th, caption, small {
+p, label, li, td, th, caption, small {
     font-family: 'Inter', sans-serif !important;
 }
 
-/* Preserve Streamlit Material Icons (sidebar arrow, etc.) */
+/* ── Preserve ALL Streamlit Material Icons ──────────────────────────── */
 [data-testid="stIconMaterial"],
+[data-testid="stSidebarCollapsedControl"] *,
+[data-testid="stSidebarCollapseButton"] *,
+[data-testid="stBaseButton-headerNoPadding"] *,
 .material-symbols-outlined,
-span[data-testid="stIconMaterial"] {
-    font-family: "Material Symbols Outlined" !important;
+.material-symbols-rounded,
+span.material-symbols-outlined,
+span.material-symbols-rounded {
+    font-family: "Material Symbols Rounded", "Material Symbols Outlined" !important;
+    -webkit-font-feature-settings: 'liga' 1 !important;
+    font-feature-settings: 'liga' 1 !important;
+}
+
+/* ── Ensure Sidebar Arrow Icons are Visible ───────────────────────── */
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="stSidebarCollapsedControl"] *,
+[data-testid="stSidebarCollapseButton"],
+[data-testid="stSidebarCollapseButton"] * {
+    color: var(--text-primary) !important;
+    fill: var(--text-primary) !important;
+    opacity: 1 !important;
 }
 
 /* ── Metric Cards (Glassmorphism) ───────────────────────────────────── */
