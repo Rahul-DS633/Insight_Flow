@@ -19,19 +19,22 @@ st.set_page_config(
 
 # ── Load Custom CSS ───────────────────────────────────────────────────
 def load_css():
-    css_path = os.path.join(os.path.dirname(__file__), "assets", "style.css")
+    theme = "style_light.css" if st.session_state.get("light_mode", False) else "style.css"
+    css_path = os.path.join(os.path.dirname(__file__), "assets", theme)
     if os.path.exists(css_path):
         with open(css_path, encoding="utf-8") as f:
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-
-load_css()
 
 # ── Initialize Database ──────────────────────────────────────────────
 from database import init_db
 init_db()
 
 # ── Import Modules ────────────────────────────────────────────────────
-from modules import data_upload, data_cleaning, chart_builder, dashboard_builder, data_filter, ai_insights
+from modules import data_upload, data_cleaning, chart_builder, dashboard_builder, data_filter, ai_insights, data_modeling
+from modules.auth import init_auth_state, render_login_page, render_logout_button
+
+# ── Initialize Auth State ─────────────────────────────────────────────
+init_auth_state()
 
 # ── Session State Initialization ──────────────────────────────────────
 if "current_df" not in st.session_state:
@@ -46,6 +49,111 @@ if "saved_charts" not in st.session_state:
     st.session_state["saved_charts"] = []
 if "ai_insights" not in st.session_state:
     st.session_state["ai_insights"] = ""
+if "light_mode" not in st.session_state:
+    st.session_state["light_mode"] = False
+
+# Now that state is prepped, check auth and load CSS
+load_css()
+
+# ── Floating Theme Button (top-right corner) ─────────────────────────
+if st.session_state["light_mode"]:
+    _icon, _label, _next = "🌙", "Dark Mode", False
+else:
+    _icon, _label, _next = "☀️", "Light Mode", True
+
+st.markdown(
+    f'<div style="position:fixed;top:14px;right:24px;z-index:999999;">'
+    f'</div>',
+    unsafe_allow_html=True,
+)
+
+# Use a small column trick to put the button top-right
+_btn_col1, _btn_col2 = st.columns([10, 1])
+with _btn_col2:
+    if st.button(f"{_icon}", key="theme_btn", help=f"Switch to {_label}"):
+        st.session_state["light_mode"] = _next
+        st.rerun()
+
+# ══════════════════════════════════════════════════════════════════════
+# SIDEBAR (Always Visible)
+# ══════════════════════════════════════════════════════════════════════
+
+with st.sidebar:
+    # Branding
+    st.markdown(
+        '<div class="brand-header">'
+        '<span class="brand-logo">📊</span>'
+        '<span class="brand-text">InsightFlow</span>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+    if st.session_state.get("user_authenticated", False):
+        st.caption(f"Welcome, **{st.session_state.get('username', 'User')}**")
+    st.caption("AI-Powered Data Analytics")
+
+    st.markdown("---")
+
+    # Navigation (Only if authenticated)
+    if st.session_state.get("user_authenticated", False):
+        page = st.radio(
+            "Navigation",
+            [
+                "🏠  Home",
+                "📂  Dataset Upload",
+                "🧹  Power Query",
+                "🧮  DAX & Modeling",
+                "📊  Visual Analytics",
+                "📈  Dashboards & Stories",
+                "🎛️  Data Filtering",
+                "🤖  AI Insights",
+            ],
+            index=0,
+            key="nav_radio",
+            label_visibility="collapsed",
+        )
+
+        st.markdown("---")
+
+        # Active dataset status
+        if st.session_state.get("current_df") is not None:
+            df = st.session_state["current_df"]
+            st.markdown(
+                f'<div style="background: var(--glass-bg, rgba(28,35,51,0.65)); '
+                f'backdrop-filter: blur(8px); '
+                f'border: 1px solid var(--glass-border, rgba(255,255,255,0.08)); border-radius: 12px; padding: 14px;">'
+                f'<p style="color: var(--accent-green, #3fb950); font-size: 0.8rem; font-weight: 600; margin:0;">●  ACTIVE DATASET</p>'
+                f'<p style="color: var(--text-primary, #e6edf3); font-weight: 600; margin: 4px 0 8px 0;">{st.session_state["current_df_name"]}</p>'
+                f'<p style="color: var(--text-secondary, #8b949e); font-size: 0.8rem; margin:0;">📊 {len(df):,} rows × {len(df.columns)} columns</p>'
+                f'<p style="color: var(--text-secondary, #8b949e); font-size: 0.8rem; margin:0;">💾 {len(st.session_state.get("saved_charts", []))} charts saved</p>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                '<div style="background: var(--glass-bg, rgba(28,35,51,0.65)); '
+                'backdrop-filter: blur(8px); '
+                'border: 1px solid var(--glass-border, rgba(255,255,255,0.08)); border-radius: 12px; padding: 14px;">'
+                '<p style="color: var(--text-muted, #484f58); font-size: 0.8rem; font-weight: 600; margin:0;">○  NO DATASET</p>'
+                '<p style="color: var(--text-secondary, #8b949e); font-size: 0.8rem; margin: 4px 0 0 0;">Upload a file to start</p>'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("---")
+    
+    # Theme toggle is now a floating button at the top-right, not in sidebar
+    st.markdown("---")
+    
+    # Logout Button (only if authenticated)
+    if st.session_state.get("user_authenticated", False):
+        render_logout_button()
+    
+    st.caption("v1.0.0 • Built with ❤️")
+
+# ── Authentication Barrier ────────────────────────────────────────────
+if not st.session_state.get("user_authenticated", False):
+    render_login_page()
+    st.stop()
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -76,13 +184,13 @@ def render_home():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Feature Cards
+    # Feature Cards – using CSS classes for glassmorphism
     features = [
         ("📂", "Dataset Upload", "Upload CSV & Excel files with instant preview and quality stats", "#58a6ff"),
-        ("🧹", "Data Cleaning", "Auto-detect and fix missing values, duplicates, and type issues", "#3fb950"),
-        ("📊", "Chart Builder", "Build interactive Bar, Line, Scatter, Pie, Histogram & Heatmap charts", "#f0b429"),
-        ("📈", "Dashboard", "Combine multiple charts into powerful visual dashboards", "#bc8cff"),
-        ("🎛️", "Data Filtering", "Dynamic filters for focused exploration of data subsets", "#f0883e"),
+        ("🧹", "Power Query", "Merge, Group By, Pivot/Unpivot + clean missing values & duplicates", "#3fb950"),
+        ("🧮", "DAX & Modeling", "Create calculated columns, data relationships, and quick measures", "#f0883e"),
+        ("📊", "Visual Analytics", "Tableau-style chart builder with Show Me!, forecasting & clustering", "#f0b429"),
+        ("📈", "Dashboards & Stories", "Build interactive dashboards and create data stories", "#bc8cff"),
         ("🤖", "AI Insights", "Gemini AI analyzes your data and surfaces hidden patterns", "#39d2c0"),
     ]
 
@@ -91,13 +199,10 @@ def render_home():
         with cols[i % 3]:
             st.markdown(
                 f"""
-                <div style="background: linear-gradient(145deg, #1c2333, #242d3d);
-                    border: 1px solid #30363d; border-top: 3px solid {color};
-                    border-radius: 12px; padding: 24px; margin: 8px 0; min-height: 160px;
-                    transition: transform 0.2s ease, box-shadow 0.2s ease;">
-                    <p style="font-size: 2rem; margin-bottom:8px;">{icon}</p>
-                    <p style="color: #e6edf3; font-weight: 700; font-size: 1.05rem; margin-bottom: 6px;">{title}</p>
-                    <p style="color: #8b949e; font-size: 0.85rem; line-height: 1.5;">{desc}</p>
+                <div class="feature-card" style="--card-accent: {color}; margin: 8px 0;">
+                    <p class="card-icon">{icon}</p>
+                    <p class="card-title">{title}</p>
+                    <p class="card-desc">{desc}</p>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -133,66 +238,8 @@ def render_home():
         st.markdown("🤖 **Gemini AI**")
 
 
-# ══════════════════════════════════════════════════════════════════════
-# SIDEBAR
-# ══════════════════════════════════════════════════════════════════════
+# Note: Sidebar logic was moved up above the authentication barrier
 
-with st.sidebar:
-    # Branding
-    st.markdown(
-        '<div class="brand-header">'
-        '<span class="brand-logo">📊</span>'
-        '<span class="brand-text">InsightFlow</span>'
-        '</div>',
-        unsafe_allow_html=True,
-    )
-    st.caption("AI-Powered Data Analytics")
-
-    st.markdown("---")
-
-    # Navigation
-    page = st.radio(
-        "Navigation",
-        [
-            "🏠  Home",
-            "📂  Dataset Upload",
-            "🧹  Data Cleaning",
-            "📊  Chart Builder",
-            "📈  Dashboard",
-            "🎛️  Data Filtering",
-            "🤖  AI Insights",
-        ],
-        index=0,
-        key="nav_radio",
-        label_visibility="collapsed",
-    )
-
-    st.markdown("---")
-
-    # Active dataset status
-    if st.session_state["current_df"] is not None:
-        df = st.session_state["current_df"]
-        st.markdown(
-            f'<div style="background: linear-gradient(145deg, #1c2333, #242d3d); '
-            f'border: 1px solid #30363d; border-radius: 10px; padding: 14px;">'
-            f'<p style="color: #3fb950; font-size: 0.8rem; font-weight: 600; margin:0;">●  ACTIVE DATASET</p>'
-            f'<p style="color: #e6edf3; font-weight: 600; margin: 4px 0 8px 0;">{st.session_state["current_df_name"]}</p>'
-            f'<p style="color: #8b949e; font-size: 0.8rem; margin:0;">📊 {len(df):,} rows × {len(df.columns)} columns</p>'
-            f'<p style="color: #8b949e; font-size: 0.8rem; margin:0;">💾 {len(st.session_state.get("saved_charts", []))} charts saved</p>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-    else:
-        st.markdown(
-            '<div style="background: #1c2333; border: 1px solid #30363d; border-radius: 10px; padding: 14px;">'
-            '<p style="color: #484f58; font-size: 0.8rem; font-weight: 600; margin:0;">○  NO DATASET</p>'
-            '<p style="color: #8b949e; font-size: 0.8rem; margin: 4px 0 0 0;">Upload a file to start</p>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-
-    st.markdown("---")
-    st.caption("v1.0.0 • Built with ❤️")
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -203,11 +250,13 @@ if "Home" in page:
     render_home()
 elif "Dataset Upload" in page:
     data_upload.render()
-elif "Data Cleaning" in page:
+elif "Power Query" in page:
     data_cleaning.render()
-elif "Chart Builder" in page:
+elif "DAX" in page:
+    data_modeling.render()
+elif "Visual Analytics" in page:
     chart_builder.render()
-elif "Dashboard" in page:
+elif "Dashboard" in page or "Stories" in page:
     dashboard_builder.render()
 elif "Data Filtering" in page:
     data_filter.render()

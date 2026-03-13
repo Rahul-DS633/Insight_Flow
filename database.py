@@ -55,6 +55,13 @@ def init_db():
             created_at TEXT NOT NULL,
             FOREIGN KEY (dashboard_id) REFERENCES dashboards(id) ON DELETE CASCADE
         );
+
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
     """)
 
     conn.commit()
@@ -192,3 +199,30 @@ def delete_chart(chart_id):
     conn.execute("DELETE FROM charts WHERE id = ?", (chart_id,))
     conn.commit()
     conn.close()
+
+
+# ──────────────────────── User Operations ───────────────────────────────
+
+def create_user(username, password_hash):
+    """Create a new user."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)",
+            (username, password_hash, datetime.now().isoformat())
+        )
+        user_id = cursor.lastrowid
+        conn.commit()
+        return user_id
+    except sqlite3.IntegrityError:
+        return None  # Username already exists
+    finally:
+        conn.close()
+
+def get_user_by_username(username):
+    """Retrieve a user by username."""
+    conn = get_connection()
+    row = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
